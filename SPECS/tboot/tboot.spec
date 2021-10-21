@@ -1,19 +1,19 @@
 Summary:        Trusted pre-kernel module and tools.
 Name:           tboot
-Version:        1.10.2
-Release:        1%{?dist}
+Version:        1.9.12
+Release:        2%{?dist}
 License:        BSD
 Vendor:         Microsoft Corporation
 Distribution:   Mariner
 Group:          System Environment/Security
 URL:            https://sourceforge.net/projects/tboot/
-#Source0:        http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
-Source0:        %{name}-%{version}.tar.gz
+Source0:        http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
 BuildRequires:  make
 BuildRequires:  gcc
-BuildRequires:  perl
+BuildRequires:  trousers-devel
 BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel
+Requires:       libtspi
 ExclusiveArch:  x86_64
 
 %description
@@ -25,7 +25,7 @@ and verified launch of an OS kernel/VMM.
 %setup -q
 
 %build
-CFLAGS="%{optflags} -Wno-error=int-conversion -Wno-error=implicit-function-declaration"
+CFLAGS="%{optflags} -Wno-error=implicit-fallthrough= "
 export CFLAGS
 make debug=y %{?_smp_mflags}
 
@@ -34,27 +34,37 @@ make debug=y DISTDIR=$RPM_BUILD_ROOT install
 
 
 %files
-%doc COPYING docs/*
+%doc README COPYING docs/* lcptools/Linux_LCP_Tools_User_Manual.pdf
 %config %{_sysconfdir}/grub.d/20_linux_tboot
 %config %{_sysconfdir}/grub.d/20_linux_xen_tboot
+%{_sbindir}/acminfo
+%{_sbindir}/lcp_readpol
+%{_sbindir}/lcp_writepol
 %{_sbindir}/lcp2_crtpol
 %{_sbindir}/lcp2_crtpolelt
 %{_sbindir}/lcp2_crtpollist
 %{_sbindir}/lcp2_mlehash
+%{_sbindir}/parse_err
 %{_sbindir}/tb_polgen
-%{_sbindir}/txt-acminfo
-%{_sbindir}/txt-parse_err
+%{_sbindir}/tpmnv_defindex
+%{_sbindir}/tpmnv_getcap
+%{_sbindir}/tpmnv_lock
+%{_sbindir}/tpmnv_relindex
 %{_sbindir}/txt-stat
-%{_mandir}/man8/lcp2_crtpol.8.gz
-%{_mandir}/man8/lcp2_crtpolelt.8.gz
-%{_mandir}/man8/lcp2_crtpollist.8.gz
-%{_mandir}/man8/lcp2_mlehash.8.gz
+%{_mandir}/man8/acminfo.8.gz
+%{_mandir}/man8/lcp_crtpconf.8.gz
+%{_mandir}/man8/lcp_crtpol.8.gz
+%{_mandir}/man8/lcp_crtpol2.8.gz
+%{_mandir}/man8/lcp_crtpolelt.8.gz
+%{_mandir}/man8/lcp_crtpollist.8.gz
+%{_mandir}/man8/lcp_mlehash.8.gz
+%{_mandir}/man8/lcp_readpol.8.gz
+%{_mandir}/man8/lcp_writepol.8.gz
 %{_mandir}/man8/tb_polgen.8.gz
-%{_mandir}/man8/txt-acminfo.8.gz
-%{_mandir}/man8/txt-parse_err.8.gz
 %{_mandir}/man8/txt-stat.8.gz
 /boot/tboot.gz
 /boot/tboot-syms
+
 
 %changelog
 *   Tue May 11 2021 Andrew Phelps <anphel@microsoft.com> 1.9.12-1
