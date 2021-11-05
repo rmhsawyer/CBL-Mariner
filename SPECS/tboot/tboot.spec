@@ -67,6 +67,9 @@ make debug=y DISTDIR=$RPM_BUILD_ROOT install
 
 
 %changelog
+* Thu Nov 04 2021 Henry Li <lihl@microsoft.com> 1.9.12-2
+- Add missing binaries
+
 *   Tue May 11 2021 Andrew Phelps <anphel@microsoft.com> 1.9.12-1
 -   Update to version 1.9.12 for binutils 2.36.1 compatibility
 *   Sat May 09 2020 Nick Samson <nisamson@microsoft.com> 1.9.7-7
