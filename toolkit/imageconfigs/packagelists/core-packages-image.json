@@ -2,8 +2,6 @@
     "packages": [
         "shim",
         "grub2-efi-binary",
-        "tboot",
-        "libtspi",
         "ca-certificates",
         "cronie",
         "logrotate",
