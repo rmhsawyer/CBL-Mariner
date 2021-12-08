@@ -116,9 +116,9 @@ touch $LFS/logs/temptoolchain/status_gcc_pass1_complete
 
 echo Linux-5.15.2.1 API Headers
 tar xf kernel-5.15.2.1.tar.gz
-#cp /tools/0002-add-linux-syscall-license-info.patch CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.15.2.1/
+cp /tools/0002-add-linux-syscall-license-info.patch CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.15.2.1/
 pushd CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.15.2.1
-#patch -p1 -i 0002-add-linux-syscall-license-info.patch
+patch -p1 -i 0002-add-linux-syscall-license-info.patch
 make mrproper
 make headers
 cp -rv usr/include/* /tools/include
