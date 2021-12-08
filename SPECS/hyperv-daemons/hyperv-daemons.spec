@@ -221,7 +221,7 @@ fi
 %{_sbindir}/lsvmbus
 
 %changelog
-* Mon Nov 22 2021 Rachel Menge <rachelmenge@microsoft.com> - 5.15.2.1-1
+* Mon Nov 29 2021 Rachel Menge <rachelmenge@microsoft.com> - 5.15.2.1-1
 - Update source to 5.15.2.1
 
 * Mon Nov 08 2021 Rachel Menge <rachelmenge@microsoft.com> - 5.10.78.1-1
