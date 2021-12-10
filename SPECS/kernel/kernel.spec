@@ -3,8 +3,8 @@
 %define uname_r %{version}-%{release}
 Summary:        Linux Kernel
 Name:           kernel
-Version:        5.10.74.1
-Release:        3%{?dist}
+Version:        5.10.78.1
+Release:        2%{?dist}
 License:        GPLv2
 Vendor:         Microsoft Corporation
 Distribution:   Mariner
@@ -17,6 +17,8 @@ Source2:        config_aarch64
 Source3:        sha512hmac-openssl.sh
 Source4:        cbl-mariner-ca-20210127.pem
 Patch0:         0001-clocksource-drivers-hyper-v-Re-enable-VDSO_CLOCKMODE.patch
+Patch1:         pthread_stack_min_int_cast.patch
+Patch2:         0002-add-linux-syscall-license-info.patch
 # Kernel CVEs are addressed by moving to a newer version of the stable kernel.
 # Since kernel CVEs are filed against the upstream kernel version and not the
 # stable kernel version, our automated tooling will still flag the CVE as not
@@ -216,13 +218,16 @@ Patch1178:      CVE-2021-3653.nopatch
 Patch1179:      CVE-2021-42008.nopatch
 Patch1180:      CVE-2021-41864.nopatch
 Patch1181:      CVE-2021-42252.nopatch
-Patch1182:      sched.patch
-Patch1183:      mmput.patch
+Patch1182:      CVE-2021-43267.nopatch
+Patch1183:      CVE-2021-42739.nopatch
+Patch1184:      CVE-2021-42327.nopatch
+Patch1185:      CVE-2021-43389.nopatch
+Patch1186:      mmput.patch
 BuildRequires:  audit-devel
 BuildRequires:  bash
 BuildRequires:  bc
-BuildRequires:  dwarves
 BuildRequires:  diffutils
+BuildRequires:  dwarves
 BuildRequires:  glib-devel
 BuildRequires:  kbd
 BuildRequires:  kmod-devel
@@ -232,7 +237,7 @@ BuildRequires:  openssl
 BuildRequires:  openssl-devel
 BuildRequires:  pam-devel
 BuildRequires:  procps-ng-devel
-BuildRequires:  python3
+BuildRequires:  python3-devel
 BuildRequires:  sed
 BuildRequires:  xerces-c-devel
 Requires:       filesystem
@@ -310,6 +315,13 @@ Requires:       audit
 %description tools
 This package contains the 'perf' performance analysis tools for Linux kernel.
 
+%package -n     python3-perf
+Summary:        Python 3 extension for perf tools
+Requires:       python3
+
+%description -n python3-perf
+This package contains the Python 3 extension for the 'perf' performance analysis tools for Linux kernel.
+
 %package dtb
 Summary:        This package contains common device tree blobs (dtb)
 Group:          System Environment/Kernel
@@ -317,9 +329,8 @@ Group:          System Environment/Kernel
 %description dtb
 This package contains common device tree blobs (dtb)
 
-%package -n bpftool
-Summary: Inspection and simple manipulation of eBPF programs and maps
-License: GPLv2
+%package -n     bpftool
+Summary:        Inspection and simple manipulation of eBPF programs and maps
 
 %description -n bpftool
 This package contains the bpftool, which allows inspection and simple
@@ -328,8 +339,9 @@ manipulation of eBPF programs and maps.
 %prep
 %setup -q -n CBL-Mariner-Linux-Kernel-rolling-lts-mariner-%{version}
 %patch0 -p1
-%patch1182 -p1
-%patch1183 -p1
+%patch1 -p1
+%patch2 -p1
+%patch1186 -p1
 
 %build
 make mrproper
@@ -369,7 +381,9 @@ diff --unified new_config current_config > config_diff || true
 cp %{SOURCE4} certs/mariner.pem
 
 make VERBOSE=1 KBUILD_BUILD_VERSION="1" KBUILD_BUILD_HOST="CBL-Mariner" ARCH=${arch} %{?_smp_mflags}
-make -C tools perf
+
+# Compile perf, python3-perf
+make -C tools/perf PYTHON=%{python3} all
 
 #Compile bpftool
 make -C tools/bpf/bpftool
@@ -461,6 +475,9 @@ cp scripts/module.lds %{buildroot}%{_prefix}/src/linux-headers-%{uname_r}/script
 # Linux version that was affected is 4.4.26
 make -C tools JOBS=1 DESTDIR=%{buildroot} prefix=%{_prefix} perf_install
 
+# Install python3-perf
+make -C tools/perf DESTDIR=%{buildroot} prefix=%{_prefix} install-python_ext
+
 # Install bpftool
 make -C tools/bpf/bpftool DESTDIR=%{buildroot} prefix=%{_prefix} bash_compdir=%{_sysconfdir}/bash_completion.d/ mandir=%{_mandir} install
 
@@ -513,6 +530,7 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 /lib/modules/%{uname_r}/*
 /lib/modules/%{uname_r}/.vmlinuz.hmac
 %exclude /lib/modules/%{uname_r}/build
+%exclude /lib/modules/%{uname_r}/kernel/drivers/accessibility
 %exclude /lib/modules/%{uname_r}/kernel/drivers/gpu
 %exclude /lib/modules/%{uname_r}/kernel/sound
 %ifarch x86_64
@@ -545,7 +563,6 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 %files tools
 %defattr(-,root,root)
 %{_libexecdir}
-%exclude %{_libdir}/debug
 %ifarch x86_64
 %{_lib64dir}/traceevent
 %endif
@@ -560,6 +577,9 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 %{_libdir}/perf/examples/bpf/*
 %{_libdir}/perf/include/bpf/*
 
+%files -n python3-perf
+%{python3_sitearch}/*
+
 %ifarch aarch64
 %files dtb
 /boot/dtb/fsl-imx8mq-evk.dtb
@@ -569,8 +589,20 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 %{_sbindir}/bpftool
 %{_sysconfdir}/bash_completion.d/bpftool
 
-
 %changelog
+* Tue Nov 23 2021 Rachel Menge <rachelmenge@microsoft.com> - 5.10.78.1-1
+- Update source to 5.10.78.1
+- Address CVE-2021-43267, CVE-2021-42739, CVE-2021-42327, CVE-2021-43389
+- Add patch to fix SPDX-License-Identifier in headers
+
+* Mon Nov 15 2021 Thomas Crain <thcrain@microsoft.com> - 5.10.74.1-4
+- Add python3-perf subpackage and add python3-devel to build-time requirements
+- Exclude accessibility modules from main package to avoid subpackage conflict
+- Remove redundant License tag from bpftool subpackage
+
+* Thu Nov 04 2021 Andrew Phelps <anphel@microsoft.com> - 5.10.74.1-3
+- Update configs for gcc 11.2.0 and binutils 2.37 updates
+
 * Tue Oct 26 2021 Rachel Menge <rachelmenge@microsoft.com> - 5.10.74.1-2
 - Update configs for eBPF support
 - Add dwarves Build-requires
@@ -651,7 +683,7 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 * Thu May 20 2021 Nicolas Ontiveros <niontive@microsoft.com> - 5.10.32.1-4
 - Bump release number to match kernel-signed update
 
-* Tue May 17 2021 Andrew Phelps <anphel@microsoft.com> - 5.10.32.1-3
+* Mon May 17 2021 Andrew Phelps <anphel@microsoft.com> - 5.10.32.1-3
 - Update CONFIG_LD_VERSION for binutils 2.36.1
 - Remove build-id match check
 

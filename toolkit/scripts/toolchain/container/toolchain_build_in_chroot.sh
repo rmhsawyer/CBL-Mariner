@@ -36,7 +36,10 @@ echo Path: $PATH
 ls -la /bin/bash
 ls -la /bin/sh
 ls -la /bin
+ls -la /tools
 ls -la /tools/bin
+ls -la /tools/lib
+ls -la /lib64
 ls /tools/bin
 ls /tools/sbin
 ls /bin
@@ -48,6 +51,13 @@ ls -la /usr/bin
 ls -la /bin/bash
 ls -la /bin/sh
 echo sanity check - raw toolchain - before building - gcc -v
+find / -name ld-linux-x86-64.so.2
+ls -la /lib64/ld-linux-x86-64.so.2
+ls -la /tools/lib/ld-linux-x86-64.so.2
+ls -la /lib64
+ls -la /lib64/ld-lsb-x86-64.so.3
+ls -la /lib64/ld-linux-x86-64.so.2
+file /tools/bin/gcc
 gcc -v
 echo Finished printing debug info
 
@@ -57,14 +67,16 @@ set -e
 #
 cd /sources
 
-echo Linux-5.10.74.1 API Headers
-tar xf kernel-5.10.74.1.tar.gz
-pushd CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.10.74.1
+echo Linux-5.10.78.1 API Headers
+tar xf kernel-5.10.78.1.tar.gz
+cp /tools/0002-add-linux-syscall-license-info.patch CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.10.78.1/
+pushd CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.10.78.1
+patch -p1 -i 0002-add-linux-syscall-license-info.patch
 make mrproper
 make headers
 cp -rv usr/include/* /usr/include
 popd
-rm -rf CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.10.74.1
+rm -rf CBL-Mariner-Linux-Kernel-rolling-lts-mariner-5.10.78.1
 touch /logs/status_kernel_headers_complete
 
 echo 6.8. Man-pages-5.02
@@ -75,19 +87,18 @@ popd
 rm -rf man-pages-5.02
 touch /logs/status_man_pages_complete
 
-echo glibc-2.28
-tar xf glibc-2.28.tar.xz
-pushd glibc-2.28
-patch -Np1 -i ../glibc-2.28-fhs-1.patch
+echo glibc-2.34
+tar xf glibc-2.34.tar.xz
+pushd glibc-2.34
+patch -Np1 -i ../glibc-2.34-fhs-1.patch
 ln -sfv /tools/lib/gcc /usr/lib
 ls -la /usr/lib/gcc/
 case $(uname -m) in
     x86_64)
-        GCC_INCDIR=/usr/lib/gcc/$BUILD_TARGET/9.1.0/include
+        GCC_INCDIR=/usr/lib/gcc/$BUILD_TARGET/11.2.0/include
     ;;
     aarch64)
-        GCC_INCDIR=/usr/lib/gcc/$BUILD_TARGET/9.1.0/include
-        ln -sv ld-2.27.so /lib64/ld-linux.so.3
+        GCC_INCDIR=/usr/lib/gcc/$BUILD_TARGET/11.2.0/include
     ;;
 esac
 rm -f /usr/include/limits.h
@@ -105,8 +116,7 @@ CC="gcc -isystem $GCC_INCDIR -isystem /usr/include" \
 # checking whether to use .ctors/.dtors header and trailer... configure: error: missing __attribute__ ((constructor)) support??
 # adding 'libc_cv_ctors_header=yes'
 unset GCC_INCDIR
-# Build with single processor due to LFS warning about glibc errors seen with parallel make
-make -j1
+make -j$(nproc)
 touch /etc/ld.so.conf
 sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
 make install
@@ -121,11 +131,12 @@ include /etc/ld.so.conf.d/*.conf
 EOF
 mkdir -pv /etc/ld.so.conf.d
 popd
-rm -rf glibc-2.28
+rm -rf glibc-2.34
 
 touch /logs/status_glibc_complete
 
 echo 6.10. Adjusting the Toolchain
+find / -name ld-linux-x86-64.so.2
 # The final C library was just installed above. Ajust the toolchain to link newly compiled programs with it.
 mv -v /tools/bin/{ld,ld-old}
 mv -v /tools/$BUILD_TARGET/bin/{ld,ld-old}
@@ -198,15 +209,14 @@ popd
 rm -rf zlib-1.2.11
 touch /logs/status_zlib_complete
 
-echo File-5.34
-tar xf file-5.34.tar.gz
-pushd file-5.34
+echo File-5.40
+tar xf file-5.40.tar.gz
+pushd file-5.40
 ./configure --prefix=/usr
-# Note: libmagic issue. --libdir=/usr/lib/x86_64-linux-gnu ?
 make -j$(nproc)
 make install
 popd
-rm -rf file-5.34
+rm -rf file-5.40
 touch /logs/status_file_complete
 
 echo Readline-7.0
@@ -226,8 +236,9 @@ touch /logs/status_readline_complete
 echo M4-1.4.18
 tar xf m4-1.4.18.tar.xz
 pushd m4-1.4.18
-sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
-echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
+# patch issues building with glibc 2.34
+patch -Np1 -i /tools/04-fix-sigstksz.patch
+patch -Np1 -i /tools/m4-1.4.18-glibc-change-work-around.patch
 ./configure --prefix=/usr
 make -j$(nproc)
 make install
@@ -235,9 +246,9 @@ popd
 rm -rf m4-1.4.18
 touch /logs/status_m4_complete
 
-echo Binutils-2.36.1
-tar xf binutils-2.36.1.tar.xz
-pushd binutils-2.36.1
+echo Binutils-2.37
+tar xf binutils-2.37.tar.xz
+pushd binutils-2.37
 patch -p1 -i /tools/linker-script-readonly-keyword-support.patch
 sed -i '/@\tincremental_copy/d' gold/testsuite/Makefile.in
 mkdir -v build
@@ -255,60 +266,64 @@ cd build
 make -j$(nproc) tooldir=/usr
 make tooldir=/usr install
 popd
-rm -rf binutils-2.36.1
+rm -rf binutils-2.37
 touch /logs/status_binutils_complete
 
-echo GMP-6.1.2
-tar xf gmp-6.1.2.tar.xz
-pushd gmp-6.1.2
+echo GMP-6.2.1
+tar xf gmp-6.2.1.tar.xz
+pushd gmp-6.2.1
 # Remove optimizations
 cp -v configfsf.guess config.guess
 cp -v configfsf.sub   config.sub
 ./configure --prefix=/usr    \
             --enable-cxx     \
             --disable-static \
-            --docdir=/usr/share/doc/gmp-6.1.2 \
+            --docdir=/usr/share/doc/gmp-6.2.1 \
             --disable-assembly
 make -j$(nproc)
 make html
 make install
 make install-html
 popd
-rm -rf gmp-6.1.2
+rm -rf gmp-6.2.1
 touch /logs/status_gmp_complete
 
-echo MPFR-4.0.1
-tar xf mpfr-4.0.1.tar.xz
-pushd mpfr-4.0.1
+echo MPFR-4.1.0
+tar xf mpfr-4.1.0.tar.xz
+pushd mpfr-4.1.0
 ./configure --prefix=/usr        \
             --disable-static     \
             --enable-thread-safe \
-            --docdir=/usr/share/doc/mpfr-4.0.1
+            --docdir=/usr/share/doc/mpfr-4.1.0
 make -j$(nproc)
 make html
 make install
 make install-html
 popd
-rm -rf mpfr-4.0.1
+rm -rf mpfr-4.1.0
 touch /logs/status_mpfr_complete
 
-echo MPC-1.1.0
-tar xf mpc-1.1.0.tar.gz
-pushd mpc-1.1.0
+echo MPC-1.2.1
+tar xf mpc-1.2.1.tar.gz
+pushd mpc-1.2.1
 ./configure --prefix=/usr    \
             --disable-static \
-            --docdir=/usr/share/doc/mpc-1.1.0
+            --docdir=/usr/share/doc/mpc-1.2.1
 make -j$(nproc)
 make html
 make install
 make install-html
 popd
-rm -rf mpc-1.1.0
+rm -rf mpc-1.2.1
 touch /logs/status_libmpc_complete
 
-echo GCC-9.1.0
-tar xf gcc-9.1.0.tar.xz
-pushd gcc-9.1.0
+echo GCC-11.2.0
+tar xf gcc-11.2.0.tar.xz
+pushd gcc-11.2.0
+# fix issue compiling with glibc 2.34
+sed -e '/static.*SIGSTKSZ/d' \
+    -e 's/return kAltStackSize/return SIGSTKSZ * 4/' \
+    -i libsanitizer/sanitizer_common/sanitizer_posix_libcdep.cpp
 case $(uname -m) in
   x86_64)
     sed -e '/m64=/s/lib64/lib/' \
@@ -329,14 +344,13 @@ ls /usr/lib/gcc
 rm -f /usr/lib/gcc
 mkdir -v build
 cd       build
-export glibcxx_cv_c99_math_cxx98=yes glibcxx_cv_c99_math_cxx11=yes
 SED=sed \
 ../configure    --prefix=/usr \
                 --enable-shared \
                 --enable-threads=posix \
                 --enable-__cxa_atexit \
                 --enable-clocale=gnu \
-                --enable-languages=c,c++,fortran\
+                --enable-languages=c,c++\
                 --disable-multilib \
                 --disable-bootstrap \
                 --enable-linker-build-id \
@@ -351,11 +365,11 @@ ln -sv ../usr/bin/cpp /lib
 ln -sv gcc /usr/bin/cc
 
 install -v -dm755 /usr/lib/bfd-plugins
-ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/9.1.0/liblto_plugin.so /usr/lib/bfd-plugins/
+ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/11.2.0/liblto_plugin.so /usr/lib/bfd-plugins/
 
 # Sanity check
 set +e
-echo sanity check - raw toolchain - gcc 9.1.0
+echo sanity check - raw toolchain - gcc 11.2.0
 ldconfig -v
 ldconfig -p
 ldconfig
@@ -371,15 +385,15 @@ echo Expected output: '[Requesting program interpreter: /lib64/ld-linux-x86-64.s
 # [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
 grep -o '/usr/lib.*/crt[1in].*succeeded' dummy.log
 # Expected output:
-# /usr/lib/gcc/x86_64-pc-linux-gnu/9.1.0/../../../../lib/crt1.o succeeded
-# /usr/lib/gcc/x86_64-pc-linux-gnu/9.1.0/../../../../lib/crti.o succeeded
-# /usr/lib/gcc/x86_64-pc-linux-gnu/9.1.0/../../../../lib/crtn.o succeeded
+# /usr/lib/gcc/x86_64-pc-linux-gnu/11.2.0/../../../../lib/crt1.o succeeded
+# /usr/lib/gcc/x86_64-pc-linux-gnu/11.2.0/../../../../lib/crti.o succeeded
+# /usr/lib/gcc/x86_64-pc-linux-gnu/11.2.0/../../../../lib/crtn.o succeeded
 grep -B4 '^ /usr/include' dummy.log
 # Expected output:
 # #include <...> search starts here:
-#  /usr/lib/gcc/x86_64-pc-linux-gnu/9.1.0/include
+#  /usr/lib/gcc/x86_64-pc-linux-gnu/11.2.0/include
 #  /usr/local/include
-#  /usr/lib/gcc/x86_64-pc-linux-gnu/9.1.0/include-fixed
+#  /usr/lib/gcc/x86_64-pc-linux-gnu/11.2.0/include-fixed
 #  /usr/include
 grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
 # Expected output:
@@ -400,20 +414,19 @@ echo Expected output: 'found ld-linux-x86-64.so.2 at /lib/ld-linux-x86-64.so.2'
 # Expected output:
 # found ld-linux-x86-64.so.2 at /lib/ld-linux-x86-64.so.2
 rm -v dummy.c a.out dummy.log
-echo End sanity check - raw toolchain - gcc 9.1.0
+echo End sanity check - raw toolchain - gcc 11.2.0
 set -e
 
 mkdir -pv /usr/share/gdb/auto-load/usr/lib
 mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
 popd
-rm -rf gcc-9.1.0
+rm -rf gcc-11.2.0
 
 touch /logs/status_gcc_complete
 
-echo Bzip2-1.0.6
-tar xf bzip2-1.0.6.tar.gz
-pushd bzip2-1.0.6
-patch -Np1 -i ../bzip2-1.0.6-install_docs-1.patch
+echo Bzip2-1.0.8
+tar xf bzip2-1.0.8.tar.gz
+pushd bzip2-1.0.8
 sed -i 's@\(ln -s -f \)$(PREFIX)/bin/@\1@' Makefile
 sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
 make -f Makefile-libbz2_so
@@ -427,7 +440,7 @@ rm -v /usr/bin/{bunzip2,bzcat,bzip2}
 ln -sv bzip2 /bin/bunzip2
 ln -sv bzip2 /bin/bzcat
 popd
-rm -rf bzip2-1.0.6
+rm -rf bzip2-1.0.8
 touch /logs/status_bzip2_complete
 
 echo Pkg-config-0.29.2
@@ -486,32 +499,27 @@ popd
 rm -rf libcap-2.26
 touch /logs/status_libcap_complete
 
-echo Sed-4.5
-tar xf sed-4.5.tar.xz
-pushd sed-4.5
-sed -i 's/usr/tools/'                 build-aux/help2man
-sed -i 's/testsuite.panic-tests.sh//' Makefile.in
+echo Sed-4.8
+tar xf sed-4.8.tar.xz
+pushd sed-4.8
 ./configure --prefix=/usr --bindir=/bin
 make -j$(nproc)
-make html
 make install
-install -d -m755           /usr/share/doc/sed-4.5
-install -m644 doc/sed.html /usr/share/doc/sed-4.5
 popd
-rm -rf sed-4.5
+rm -rf sed-4.8
 touch /logs/status_sed_complete
 
-echo Bison-3.1
-tar xf bison-3.1.tar.xz
-pushd bison-3.1
-sed -i '6855 s/mv/cp/' Makefile.in
-./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.1
+echo Bison-3.7.6
+tar xf bison-3.7.6.tar.xz
+pushd bison-3.7.6
+./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.7.6
 # Build with single processor due to errors seen with parallel make
 #     cannot stat 'examples/c/reccalc/scan.stamp.tmp': No such file or directory
-make -j1
+# try parallel make with new version
+make -j$(nproc)
 make install
 popd
-rm -rf bison-3.1
+rm -rf bison-3.7.6
 touch /logs/status_bison_complete
 
 echo Flex-2.6.4
@@ -527,27 +535,27 @@ popd
 rm -rf flex-2.6.4
 touch /logs/status_flex_complete
 
-echo Grep-3.1
-tar xf grep-3.1.tar.xz
-pushd grep-3.1
+echo Grep-3.7
+tar xf grep-3.7.tar.xz
+pushd grep-3.7
 ./configure --prefix=/usr --bindir=/bin
 make -j$(nproc)
 make install
 popd
-rm -rf grep-3.1
+rm -rf grep-3.7
 touch /logs/status_grep_complete
 
-echo Bash-4.4.18
-tar xf bash-4.4.18.tar.gz
-pushd bash-4.4.18
-./configure --prefix=/usr                    \
-            --docdir=/usr/share/doc/bash-4.4.18 \
-            --without-bash-malloc            \
+echo Bash-5.1.8
+tar xf bash-5.1.8.tar.gz
+pushd bash-5.1.8
+./configure --prefix=/usr                      \
+            --docdir=/usr/share/doc/bash-5.1.8 \
+            --without-bash-malloc              \
             --with-installed-readline
 make -j$(nproc)
 make install
 cd /sources
-rm -rf bash-4.4.18
+rm -rf bash-5.1.8
 touch /logs/status_bash_complete
 
 echo Libtool-2.4.6
@@ -560,16 +568,16 @@ popd
 rm -rf libtool-2.4.6
 touch /logs/status_libtool_complete
 
-echo GDBM-1.18.1
-tar xf gdbm-1.18.1.tar.gz
-pushd gdbm-1.18.1
+echo GDBM-1.21
+tar xf gdbm-1.21.tar.gz
+pushd gdbm-1.21
 ./configure --prefix=/usr    \
             --disable-static \
             --enable-libgdbm-compat
 make -j$(nproc)
 make install
 popd
-rm -rf gdbm-1.18.1
+rm -rf gdbm-1.21
 touch /logs/status_gdbm_complete
 
 echo gperf-3.1
@@ -582,22 +590,22 @@ popd
 rm -rf gperf-3.1
 touch /logs/status_gperf_complete
 
-echo Expat-2.2.6
-tar xf expat-2.2.6.tar.bz2
-pushd expat-2.2.6
+echo Expat-2.4.1
+tar xf expat-2.4.1.tar.bz2
+pushd expat-2.4.1
 sed -i 's|usr/bin/env |bin/|' run.sh.in
 ./configure --prefix=/usr    \
             --disable-static \
-            --docdir=/usr/share/doc/expat-2.2.6
+            --docdir=/usr/share/doc/expat-2.4.1
 make -j$(nproc)
 make install
 popd
-rm -rf expat-2.2.6
+rm -rf expat-2.4.1
 touch /logs/status_expat_complete
 
-echo Perl-5.30.3
-tar xf perl-5.30.3.tar.gz
-pushd perl-5.30.3
+echo Perl-5.32.0
+tar xf perl-5.32.0.tar.xz
+pushd perl-5.32.0
 echo "127.0.0.1 localhost $(hostname)" > /etc/hosts
 export BUILD_ZLIB=False
 export BUILD_BZIP2=0
@@ -612,7 +620,7 @@ make -j$(nproc)
 make install
 unset BUILD_ZLIB BUILD_BZIP2
 popd
-rm -rf perl-5.30.3
+rm -rf perl-5.32.0
 touch /logs/status_perl_complete
 
 echo Autoconf-2.69
@@ -626,29 +634,26 @@ popd
 rm -rf autoconf-2.69
 touch /logs/status_autoconf_complete
 
-echo Automake-1.16.1
-tar xf automake-1.16.1.tar.xz
-pushd automake-1.16.1
-./configure --prefix=/usr --docdir=/usr/share/doc/automake-1.16.1
+echo Automake-1.16.5
+tar xf automake-1.16.5.tar.gz
+pushd automake-1.16.5
+./configure --prefix=/usr --docdir=/usr/share/doc/automake-1.16.5
 make -j$(nproc)
 make install
 popd
-rm -rf automake-1.16.1
+rm -rf automake-1.16.5
 touch /logs/status_automake_complete
 
-echo Xz-5.2.4
-tar xf xz-5.2.4.tar.xz
-pushd xz-5.2.4
+echo Xz-5.2.5
+tar xf xz-5.2.5.tar.xz
+pushd xz-5.2.5
 ./configure --prefix=/usr    \
             --disable-static \
-            --docdir=/usr/share/doc/xz-5.2.4
+            --docdir=/usr/share/doc/xz-5.2.5
 make -j$(nproc)
 make install
-#mv -v   /usr/bin/{lzma,unlzma,lzcat,xz,unxz,xzcat} /bin
-#mv -v /usr/lib/liblzma.so.* /lib
-#ln -svf ../../lib/$(readlink /usr/lib/liblzma.so) /usr/lib/liblzma.so
 popd
-rm -rf xz-5.2.4
+rm -rf xz-5.2.5
 touch /logs/status_xz_complete
 
 echo zstd-1.5.0
@@ -656,6 +661,7 @@ tar xf zstd-1.5.0.tar.gz
 pushd zstd-1.5.0
 make -j$(nproc)
 make install prefix=/usr pkgconfigdir=/usr/lib/pkgconfig
+rm -v /usr/lib/libzstd.a
 popd
 rm -rf zstd-1.5.0
 touch /logs/status_zstd_complete
@@ -673,10 +679,13 @@ popd
 rm -rf gettext-0.19.8.1
 touch /logs/status_gettext_complete
 
-echo Elfutils-0.176
-tar xjf elfutils-0.176.tar.bz2
-pushd elfutils-0.176
-./configure --prefix=/usr
+echo Elfutils-0.185
+tar xjf elfutils-0.185.tar.bz2
+pushd elfutils-0.185
+./configure \
+    --prefix=/usr \
+    --disable-debuginfod \
+    --enable-libdebuginfod=dummy
 make -j$(nproc)
 make -C libelf install
 install -vm644 config/libelf.pc /usr/lib/pkgconfig
@@ -685,7 +694,7 @@ make -C libdw install
 # Need to install (eu-strip) as well
 make install
 popd
-rm -rf elfutils-0.176
+rm -rf elfutils-0.185
 touch /logs/status_libelf_complete
 
 echo Libffi-3.2.1
@@ -789,64 +798,59 @@ popd
 rm -rf Python-3.7.4
 touch /logs/status_python374_complete
 
-echo Coreutils-8.30
-tar xf coreutils-8.30.tar.xz
-pushd coreutils-8.30
-patch -Np1 -i ../coreutils-8.30-i18n-1.patch
-sed -i '/test.lock/s/^/#/' gnulib-tests/gnulib.mk
+echo Coreutils-8.32
+tar xf coreutils-8.32.tar.xz
+pushd coreutils-8.32
+patch -Np1 -i ../coreutils-8.32-i18n-1.patch
+case $(uname -m) in
+    aarch64)
+        patch -Np1 -i /tools/coreutils-fix-get-sys_getdents-aarch64.patch
+    ;;
+esac
 autoreconf -fiv
 FORCE_UNSAFE_CONFIGURE=1 ./configure \
             --prefix=/usr            \
             --enable-no-install-program=kill,uptime
 make -j$(nproc)
 make install
-#mv -v /usr/bin/{cat,chgrp,chmod,chown,cp,date,dd,df,echo} /bin
-#mv -v /usr/bin/{false,ln,ls,mkdir,mknod,mv,pwd,rm} /bin
-# Might need to "sync" here to work around timing issue
-#mv -v /usr/bin/{rmdir,stty,sync,true,uname} /bin
 mv -v /usr/bin/chroot /usr/sbin
 mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
 sed -i s/\"1\"/\"8\"/1 /usr/share/man/man8/chroot.8
-#mv -v /usr/bin/{head,nice,sleep,touch} /bin
 popd
-rm -rf coreutils-8.30
+rm -rf coreutils-8.32
 touch /logs/status_coreutils_complete
 
-echo Diffutils-3.6
-tar xf diffutils-3.6.tar.xz
-pushd diffutils-3.6
+echo Diffutils-3.8
+tar xf diffutils-3.8.tar.xz
+pushd diffutils-3.8
 ./configure --prefix=/usr
 make -j$(nproc)
 make install
 popd
-rm -rf diffutils-3.6
+rm -rf diffutils-3.8
 touch /logs/status_diffutils_complete
 
-echo Gawk-4.2.1
-tar xf gawk-4.2.1.tar.xz
-pushd gawk-4.2.1
+echo Gawk-5.1.0
+tar xf gawk-5.1.0.tar.xz
+pushd gawk-5.1.0
 sed -i 's/extras//' Makefile.in
 ./configure --prefix=/usr
 make -j$(nproc)
 make install
 popd
-rm -rf gawk-4.2.1
+rm -rf gawk-5.1.0
 touch /logs/status_gawk_complete
 
-echo Findutils-4.6.0
-tar xf findutils-4.6.0.tar.gz
-pushd findutils-4.6.0
-sed -i 's/test-lock..EXEEXT.//' tests/Makefile.in
-sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' gl/lib/*.c
-sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c
-echo "#define _IO_IN_BACKUP 0x100" >> gl/lib/stdio-impl.h
+echo Findutils-4.8.0
+tar xf findutils-4.8.0.tar.xz
+pushd findutils-4.8.0
 ./configure --prefix=/usr --localstatedir=/var/lib/locate
 make -j$(nproc)
 make install
 #mv -v /usr/bin/find /bin
 sed -i 's|find:=${BINDIR}|find:=/bin|' /usr/bin/updatedb
 popd
-rm -rf findutils-4.6.0
+rm -rf findutils-4.8.0
 touch /logs/status_findutils_complete
 
 echo Groff-1.22.3
@@ -860,17 +864,15 @@ popd
 rm -rf groff-1.22.3
 touch /logs/status_groff_complete
 
-echo Gzip-1.9
-tar xf gzip-1.9.tar.xz
-pushd gzip-1.9
+echo Gzip-1.11
+tar xf gzip-1.11.tar.xz
+pushd gzip-1.11
 ./configure --prefix=/usr
-sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
-echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
 make -j$(nproc)
 make install
 #mv -v /usr/bin/gzip /bin
 popd
-rm -rf gzip-1.9
+rm -rf gzip-1.11
 touch /logs/status_gzip_complete
 
 echo Libpipeline-1.5.0
@@ -883,15 +885,14 @@ popd
 rm -rf libpipeline-1.5.0
 touch /logs/status_libpipeline_complete
 
-echo Make-4.2.1
-tar xf make-4.2.1.tar.gz
-pushd make-4.2.1
-sed -i '211,217 d; 219,229 d; 232 d' glob/glob.c
+echo Make-4.3
+tar xf make-4.3.tar.gz
+pushd make-4.3
 ./configure --prefix=/usr
 make -j$(nproc)
 make install
 popd
-rm -rf make-4.2.1
+rm -rf make-4.3
 touch /logs/status_make_complete
 
 echo Patch-2.7.6
@@ -923,32 +924,30 @@ popd
 rm -rf man-db-2.8.4
 touch /logs/status_man_db_complete
 
-echo Tar-1.30
-tar xf tar-1.30.tar.xz
-pushd tar-1.30
+echo Tar-1.34
+tar xf tar-1.34.tar.xz
+pushd tar-1.34
 FORCE_UNSAFE_CONFIGURE=1  \
 ./configure --prefix=/usr \
             --bindir=/bin
 make -j$(nproc)
 make install
-make -C doc install-html docdir=/usr/share/doc/tar-1.30
 popd
-rm -rf tar-1.30
+rm -rf tar-1.34
 touch /logs/status_tar_complete
 
-echo Texinfo-6.5
-tar xf texinfo-6.5.tar.xz
-pushd texinfo-6.5
-# Fix for:
-# 2020-01-28T20:06:01.1088934Z Unescaped left brace in regex is deprecated here (and will be fatal in Perl 5.32), passed through in regex; marked by <-- HERE in m/^\s+@([[:alnum:]][[:alnum:]\-]*)({ <-- HERE })?\s*(\@(c|comment)((\@|\s+).*)?)?/ at /tools/share/texinfo/Texinfo/Parser.pm line 5485.
-patch -p1 -i /tools/texinfo-perl-fix.patch
-#  --disable-perl-xs
+echo Texinfo-6.8
+tar xf texinfo-6.8.tar.xz
+pushd texinfo-6.8
 ./configure --prefix=/usr --disable-static
+# fix issue building with glibc 2.34:
+sed -e 's/__attribute_nonnull__/__nonnull/' \
+    -i gnulib/lib/malloc/dynarray-skeleton.c
 make -j$(nproc)
 make install
 make TEXMF=/usr/share/texmf install-tex
 popd
-rm -rf texinfo-6.5
+rm -rf texinfo-6.8
 touch /logs/status_texinfo_complete
 
 echo Procps-ng-3.3.15
@@ -968,12 +967,12 @@ popd
 rm -rf procps-ng-3.3.15
 touch /logs/status_procpsng_complete
 
-echo util-linux-2.32.1
-tar xf util-linux-2.32.1.tar.xz
-pushd util-linux-2.32.1
+echo util-linux-2.37.2
+tar xf util-linux-2.37.2.tar.xz
+pushd util-linux-2.37.2
 mkdir -pv /var/lib/hwclock
 ./configure ADJTIME_PATH=/var/lib/hwclock/adjtime   \
-            --docdir=/usr/share/doc/util-linux-2.32.1 \
+            --docdir=/usr/share/doc/util-linux-2.37.2 \
             --disable-chfn-chsh  \
             --disable-login      \
             --disable-nologin    \
@@ -988,7 +987,7 @@ mkdir -pv /var/lib/hwclock
 make -j$(nproc)
 make install
 popd
-rm -rf util-linux-2.32.1
+rm -rf util-linux-2.37.2
 touch /logs/status_util-linux_complete
 
 #
@@ -1067,35 +1066,10 @@ popd
 rm -rf db-5.3.28
 touch /logs/status_libdb_complete
 
-echo nss-3.44
-tar xf nss-3.44.tar.gz
-pushd nss-3.44
-patch -Np1 -i ../nss-3.44-standalone-1.patch
-cd nss
-export NSS_DISABLE_GTESTS=1
-# Build with single processor due to errors seen with parallel make
-make -j1 BUILD_OPT=1                    \
-    NSPR_INCLUDE_DIR=/usr/include/nspr  \
-    USE_SYSTEM_ZLIB=1                   \
-    ZLIB_LIBS=-lz                       \
-    NSS_ENABLE_WERROR=0                 \
-    USE_64=1                            \
-    $([ -f /usr/include/sqlite3.h ] && echo NSS_USE_SYSTEM_SQLITE=1)
-cd ../dist
-install -v -m755 Linux*/lib/*.so              /usr/lib
-install -v -m644 Linux*/lib/{*.chk,libcrmf.a} /usr/lib
-install -v -m755 -d                           /usr/include/nss
-cp -v -RL {public,private}/nss/*              /usr/include/nss
-chmod -v 644                                  /usr/include/nss/*
-install -v -m755 Linux*/bin/{certutil,nss-config,pk12util} /usr/bin
-install -v -m644 Linux*/lib/pkgconfig/nss.pc  /usr/lib/pkgconfig
-popd
-rm -rf nss-3.44
-touch /logs/status_nss_complete
-
 echo cpio-2.13
 tar xjf cpio-2.13.tar.bz2
 pushd cpio-2.13
+patch -Np1 -i /tools/cpio_extern_nocommon.patch
 ./configure --prefix=/usr \
         --bindir=/bin \
         --enable-mt   \
@@ -1163,28 +1137,57 @@ popd
 rm -rf lua-5.3.5
 touch /logs/status_lua_complete
 
-echo rpm-4.14.2
-tar xjf rpm-4.14.2.tar.bz2
-pushd rpm-4.14.2
+DEBUGEDIT_WITH_VERSION=debugedit-5.0
+echo $DEBUGEDIT_WITH_VERSION
+tar xf "$DEBUGEDIT_WITH_VERSION".tar.xz
+pushd "$DEBUGEDIT_WITH_VERSION"
+./configure --prefix=/usr
+make
+make install
+popd
+rm -rf "$DEBUGEDIT_WITH_VERSION"
+touch /logs/status_debugedit_complete
+
+RPM_WITH_VERSION=rpm-4.17.0
+RPM_FOLDER="$RPM_WITH_VERSION"-release
+echo $RPM_WITH_VERSION
+tar xf "$RPM_WITH_VERSION"-release.tar.gz
+mv rpm-"$RPM_WITH_VERSION"-release "$RPM_FOLDER"
+pushd "$RPM_FOLDER"
+
+# Still not in the upstream
 patch -Np1 -i /tools/rpm-define-RPM-LD-FLAGS.patch
+
+# Do not build docs - pandoc dependency is not supplied in the toolchain.
+sed -iE '/SUBDIRS/ s/docs //' Makefile.am
+sed -iE '/Always build/,+16 d' Makefile.am
+
+./autogen.sh --noconfigure
 ./configure --prefix=/usr \
-    --enable-posixmutexes \
-    --without-selinux \
-    --with-vendor=mariner \
-    --without-python \
-    --with-lua \
-    --without-javaglue
+        --enable-ndb \
+        --without-selinux \
+        --with-crypto=openssl \
+        --with-vendor=mariner
+
 make -j$(nproc)
 make install
 install -d /var/lib/rpm
+
 rpm --initdb --root=/ --dbpath /var/lib/rpm
 popd
-rm -rf rpm-4.14.2
+
+rm -rf "$RPM_FOLDER"
+
+# Fix the interpreter path for python replacing the first line
+sed -i '1 s:.*:#!/usr/bin/python3:' pythondistdeps.py
+install -p pythondistdeps.py /usr/lib/rpm/pythondistdeps.py
+install -p pythondeps.sh /usr/lib/rpm/pythondeps.sh
+install -p python.attr /usr/lib/rpm/fileattrs/python.attr
+
 touch /logs/status_rpm_complete
 
 # Cleanup
 rm -rf /tmp/*
-unset BUILD_TARGET
 
 echo sanity check - raw toolchain - after build complete - gcc -v
 gcc -v

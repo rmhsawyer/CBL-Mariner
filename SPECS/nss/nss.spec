@@ -9,11 +9,12 @@
     %{buildroot}%{unsupported_tools_directory}/shlibsign -i %{buildroot}%{_libdir}/libfreeblpriv3.so \
     %{buildroot}%{unsupported_tools_directory}/shlibsign -i %{buildroot}%{_libdir}/libfreebl3.so \
     %{buildroot}%{unsupported_tools_directory}/shlibsign -i %{buildroot}%{_libdir}/libnssdbm3.so \
-%{nil}
+    %{nil}
+
 Summary:        Security client
 Name:           nss
 Version:        3.44
-Release:        8%{?dist}
+Release:        10%{?dist}
 License:        MPLv2.0
 Vendor:         Microsoft Corporation
 Distribution:   Mariner
@@ -26,9 +27,11 @@ Patch0:         nss-3.44-standalone-1.patch
 Patch1:         CVE-2020-12403.patch
 BuildRequires:  nspr-devel
 BuildRequires:  sqlite-devel
+BuildRequires:  libdb-devel
 Provides:       %{name}-tools = %{version}-%{release}
 Provides:       %{name}-softokn = %{version}-%{release}
 Requires:       nspr
+Requires:       libdb
 Requires:       nss-libs = %{version}-%{release}
 
 %description
@@ -83,6 +86,7 @@ make VERBOSE=1 BUILD_OPT=1 \
     USE_SYSTEM_ZLIB=1 \
     ZLIB_LIBS=-lz \
     USE_64=1 \
+    NSS_ENABLE_WERROR=0 \
     $([ -f %{_includedir}/sqlite3.h ] && echo NSS_USE_SYSTEM_SQLITE=1)
 popd
 
@@ -124,6 +128,9 @@ install -vm 644 Linux*/lib/pkgconfig/nss.pc %{buildroot}%{_libdir}/pkgconfig
 install -p -m 644 pkgconfig/nss-util.pc %{buildroot}%{_libdir}/pkgconfig/nss-util.pc
 install -p -m 755 pkgconfig/nss-util-config %{buildroot}%{_bindir}/nss-util-config
 
+# The shilibsign script ran after packaging is looking for those files in the lib directory (hardcoded)
+cp -r %{buildroot}%{_libdir}/* /lib
+
 %check
 pushd nss/tests
 export USE_64=1
@@ -157,7 +164,14 @@ popd
 %{unsupported_tools_directory}/shlibsign
 
 %changelog
-* Fri Sep 24 2021 Pawel Winogrodzki <pawelwi@microsoft.com> - 2.28-19
+
+* Tue Nov 16 2021 Mateusz Malisz <mamalisz@microsoft.com> - 3.44-10
+- Remove libdb from toolchain. Add workaround for the shlibsign script to work.
+
+* Fri Oct 22 2021 Andrew Phelps <anphel@microsoft.com> 3.44-9
+- Fix for gcc 11.2.0
+
+* Fri Sep 24 2021 Pawel Winogrodzki <pawelwi@microsoft.com> 3.44-8
 - Adding 'Provides' for 'nss-util-devel'.
 - Adding 'nss-util.pc' and 'nss-util-config' using Fedora 32 spec (license: MIT) as guidance.
 
