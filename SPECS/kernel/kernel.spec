@@ -4,7 +4,7 @@
 Summary:        Linux Kernel
 Name:           kernel
 Version:        5.15.2.1
-Release:        105%{?dist}
+Release:        114%{?dist}
 License:        GPLv2
 Vendor:         Microsoft Corporation
 Distribution:   Mariner
@@ -29,6 +29,7 @@ BuildRequires:  audit-devel
 BuildRequires:  bash
 BuildRequires:  bc
 BuildRequires:  diffutils
+BuildRequires:  dwarves
 BuildRequires:  elfutils-libelf-devel
 BuildRequires:  glib-devel
 BuildRequires:  kbd
@@ -259,8 +260,7 @@ install -vsm 755 tools/objtool/fixdep %{buildroot}%{_prefix}/src/linux-headers-%
 
 cp .config %{buildroot}%{_prefix}/src/linux-headers-%{uname_r} # copy .config manually to be where it's expected to be
 ln -sf "%{_prefix}/src/linux-headers-%{uname_r}" "%{buildroot}/lib/modules/%{uname_r}/build"
-ls %{buildroot}/lib/modules
-find %{buildroot}/lib/modules -name '*.ko.xz' -print0 | xargs -0 chmod u+x
+find %{buildroot}/lib/modules -name '*.ko' -print0 | xargs -0 chmod u+x
 
 %ifarch aarch64
 cp scripts/module.lds %{buildroot}%{_prefix}/src/linux-headers-%{uname_r}/scripts/module.lds
