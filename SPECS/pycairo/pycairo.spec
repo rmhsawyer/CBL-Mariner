@@ -1,34 +1,33 @@
-Name: pycairo
-Version: 1.18.2
-Release: 5%{?dist}
-Summary: Python bindings for the cairo library
+Summary:        Python bindings for the cairo library
+Name:           pycairo
+Version:        1.20.1
+Release:        1%{?dist}
+License:        MPLv1.1 or LGPLv2
 Vendor:         Microsoft Corporation
 Distribution:   Mariner
-License: MPLv1.1 or LGPLv2
-URL: https://cairographics.org/pycairo
-Source0: https://github.com/pygobject/pycairo/releases/download/v%{version}/pycairo-%{version}.tar.gz
-
-BuildRequires: cairo-devel
-BuildRequires: gcc
-BuildRequires: pkgconfig
-BuildRequires: python3-devel
-BuildRequires: python3-pytest
-BuildRequires: python3-setuptools
+URL:            https://cairographics.org/pycairo
+Source0:        https://files.pythonhosted.org/packages/source/p/%{name}/%{name}-%{version}.tar.gz
 
 %description
 Python bindings for the cairo library.
 
-%package -n python3-cairo
-Summary: Python 3 bindings for the cairo library
-%{?python_provide:%python_provide python3-cairo}
+%package -n     python3-cairo
+Summary:        Python 3 bindings for the cairo library
+BuildRequires:  cairo-devel
+BuildRequires:  gcc
+BuildRequires:  pkg-config
+BuildRequires:  python3-devel
+BuildRequires:  python3-pytest
+BuildRequires:  python3-setuptools
+Requires:       python3
 
 %description -n python3-cairo
 Python 3 bindings for the cairo library.
 
-%package -n python3-cairo-devel
-Summary: Libraries and headers for py3cairo
-Requires: python3-cairo%{?_isa} = %{version}-%{release}
-Requires: python3-devel
+%package -n     python3-cairo-devel
+Summary:        Libraries and headers for py3cairo
+Requires:       python3-cairo = %{version}-%{release}
+Requires:       python3-devel
 
 %description -n python3-cairo-devel
 This package contains files required to build wrappers for cairo add-on
@@ -44,7 +43,7 @@ libraries so that they interoperate with py3cairo.
 %py3_install
 
 %check
-%{__python3} setup.py test
+%python3 setup.py test
 
 %files -n python3-cairo
 %license COPYING*
@@ -57,6 +56,10 @@ libraries so that they interoperate with py3cairo.
 %{_libdir}/pkgconfig/py3cairo.pc
 
 %changelog
+* Mon Jan 03 2022 Thomas Crain <thcrain@microsoft.com> - 1.20.1-1
+- Upgrade to latest upstream version
+- Use nicer Source0 from PyPI
+
 * Thu Feb 04 2021 Joe Schmitt <joschmit@microsoft.com> - 1.18.2-5
 - Initial CBL-Mariner import from Fedora 32 (license: MIT).
 - License verified.
