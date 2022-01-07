@@ -6,6 +6,7 @@
 %bcond_with glusterfs
 %bcond_with missing_dependencies
 %bcond_with netcf
+%bcond_with daemon-driver-storage-logical
 
 Summary:        Virtualization API library that supports KVM, QEMU, Xen, ESX etc
 Name:           libvirt
@@ -262,7 +263,9 @@ Summary:        Storage driver plugin including all backends for the libvirtd da
 Requires:       %{name}-daemon-driver-storage-core = %{version}-%{release}
 Requires:       %{name}-daemon-driver-storage-disk = %{version}-%{release}
 Requires:       %{name}-daemon-driver-storage-iscsi = %{version}-%{release}
+%if %{with daemon-driver-storage-logical}
 Requires:       %{name}-daemon-driver-storage-logical = %{version}-%{release}
+%endif
 Requires:       %{name}-daemon-driver-storage-mpath = %{version}-%{release}
 Requires:       %{name}-daemon-driver-storage-rbd = %{version}-%{release}
 Requires:       %{name}-daemon-driver-storage-scsi = %{version}-%{release}
@@ -327,16 +330,17 @@ Requires:       iscsi-initiator-utils
 The storage driver backend adding implementation of the storage APIs for iscsi
 volumes using the host iscsi stack.
 
+%if %{with daemon-driver-storage-logical}
 %package daemon-driver-storage-logical
 Summary:        Storage driver plugin for lvm volumes
 
 Requires:       libvirt-daemon-driver-storage-core = %{version}-%{release}
 Requires:       libvirt-libs = %{version}-%{release}
-Requires:       lvm2
 
 %description daemon-driver-storage-logical
 The storage driver backend adding implementation of the storage APIs for block
 volumes using lvm.
+%endif
 
 %package daemon-driver-storage-mpath
 Summary:        Storage driver plugin for multipath volumes
@@ -578,6 +582,10 @@ rm -rf %{buildroot}%{_sysconfdir}/logrotate.d/libvirtd.libxl
 
 # We're building with '--without-lxc'
 rm -rf %{buildroot}%{_sysconfdir}/logrotate.d/libvirtd.lxc
+
+%if %{without daemon-driver-storage-logical}
+rm -rf %{buildroot}%{_libdir}/%{name}/storage-backend/libvirt_storage_backend_logical.so
+%endif
 
 %find_lang %{name}
 
@@ -994,8 +1002,10 @@ exit 0
 %files daemon-driver-storage-iscsi
 %{_libdir}/%{name}/storage-backend/libvirt_storage_backend_iscsi.so
 
+%if %{with daemon-driver-storage-logical}
 %files daemon-driver-storage-logical
 %{_libdir}/%{name}/storage-backend/libvirt_storage_backend_logical.so
+%endif
 
 %files daemon-driver-storage-mpath
 %{_libdir}/%{name}/storage-backend/libvirt_storage_backend_mpath.so
