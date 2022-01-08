@@ -653,22 +653,23 @@ if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
         /bin/systemctl mask libvirtd-tls.socket >/dev/null 2>&1 || :
         /bin/systemctl mask libvirtd-tcp.socket >/dev/null 2>&1 || :
     else
+        /bin/true
         # Old libvirtd owns the sockets and will delete them on
         # shutdown. Can't use a try-restart as libvirtd will simply
         # own the sockets again when it comes back up. Thus we must
         # do this particular ordering, so that we get libvirtd
         # running with socket activation in use
-        /bin/systemctl is-active libvirtd.service 1>/dev/null 2>&1
-        if test $? = 0
-        then
-            /bin/systemctl stop libvirtd.service >/dev/null 2>&1 || :
+        #/bin/systemctl is-active libvirtd.service 1>/dev/null 2>&1
+        #if test $? = 0
+        #then
+        #    /bin/systemctl stop libvirtd.service >/dev/null 2>&1 || :
 
-            /bin/systemctl try-restart libvirtd.socket >/dev/null 2>&1 || :
-            /bin/systemctl try-restart libvirtd-ro.socket >/dev/null 2>&1 || :
-            /bin/systemctl try-restart libvirtd-admin.socket >/dev/null 2>&1 || :
+        #    /bin/systemctl try-restart libvirtd.socket >/dev/null 2>&1 || :
+        #    /bin/systemctl try-restart libvirtd-ro.socket >/dev/null 2>&1 || :
+        #    /bin/systemctl try-restart libvirtd-admin.socket >/dev/null 2>&1 || :
 
-            /bin/systemctl start libvirtd.service >/dev/null 2>&1 || :
-        fi
+        #    /bin/systemctl start libvirtd.service >/dev/null 2>&1 || :
+        #fi
     fi
 fi
 rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
