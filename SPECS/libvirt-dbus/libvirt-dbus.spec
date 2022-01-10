@@ -16,7 +16,7 @@ Source0:        https://libvirt.org/sources/dbus/%{name}-%{version}.tar.xz
 
 BuildRequires:  gcc
 BuildRequires:  glib2-devel >= %{glib2_version}
-BuildRequires:  libvirt-devel >= %{libvirt_version}
+#BuildRequires:  libvirt-devel >= %{libvirt_version}
 BuildRequires:  libvirt-glib-devel >= %{libvirt_glib_version}
 BuildRequires:  meson >= %meson_version
 BuildRequires:  python3-docutils

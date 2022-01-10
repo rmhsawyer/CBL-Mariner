@@ -12,7 +12,7 @@ URL:            https://libvirt.org
 Source0:        https://libvirt.org/sources/python/%{name}-%{version}.tar.gz
 
 BuildRequires:  gcc
-BuildRequires:  libvirt-devel = %{version}
+#BuildRequires:  libvirt-devel = %{version}
 BuildRequires:  python3-devel
 BuildRequires:  python3-lxml
 %if 0%{with_check}
