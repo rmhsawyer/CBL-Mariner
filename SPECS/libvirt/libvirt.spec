@@ -135,7 +135,7 @@ Requires:       iproute
 # for modprobe of pci devices
 Requires:       module-init-tools
 Requires:       numad
-Requires:       polkit >= 0.112
+# Requires:       polkit >= 0.112
 Requires(post): systemd-sysv
 # For service management
 Requires(post): systemd-units
@@ -596,31 +596,8 @@ VIR_TEST_DEBUG=1 %meson_test --no-suite syntax-check
 
 %systemd_preun libvirt-guests.service
 
-%post client
-%systemd_post libvirt-guests.service
-
 %postun client
 %systemd_postun libvirt-guests.service
-
-%pre daemon
-# 'libvirt' group is just to allow password-less polkit access to
-# libvirtd. The uid number is irrelevant, so we use dynamic allocation
-# described at the above link.
-getent group libvirt >/dev/null || groupadd -r libvirt
-
-exit 0
-
-%post daemon
-
-%systemd_post virtlockd.socket virtlockd-admin.socket
-%systemd_post virtlogd.socket virtlogd-admin.socket
-%systemd_post libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket
-%systemd_post libvirtd-tcp.socket libvirtd-tls.socket
-%systemd_post libvirtd.service
-
-# request daemon restart in posttrans
-mkdir -p %{_localstatedir}/lib/rpm-state/libvirt || :
-touch %{_localstatedir}/lib/rpm-state/libvirt/restart || :
 
 %preun daemon
 %systemd_preun libvirtd.service
@@ -635,123 +612,6 @@ if [ $1 -ge 1 ] ; then
     /bin/systemctl reload-or-try-restart virtlockd.service >/dev/null 2>&1 || :
     /bin/systemctl reload-or-try-restart virtlogd.service >/dev/null 2>&1 || :
 fi
-
-%posttrans daemon
-if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
-    # See if user has previously modified their install to
-    # tell libvirtd to use --listen
-    grep -E '^LIBVIRTD_ARGS=.*--listen' %{_sysconfdir}/sysconfig/libvirtd 1>/dev/null 2>&1
-    if test $? = 0
-    then
-        # Then lets keep honouring --listen and *not* use
-        # systemd socket activation, because switching things
-        # might confuse mgmt tool like puppet/ansible that
-        # expect the old style libvirtd
-        /bin/systemctl mask libvirtd.socket >/dev/null 2>&1 || :
-        /bin/systemctl mask libvirtd-ro.socket >/dev/null 2>&1 || :
-        /bin/systemctl mask libvirtd-admin.socket >/dev/null 2>&1 || :
-        /bin/systemctl mask libvirtd-tls.socket >/dev/null 2>&1 || :
-        /bin/systemctl mask libvirtd-tcp.socket >/dev/null 2>&1 || :
-    else
-        /bin/true
-        # Old libvirtd owns the sockets and will delete them on
-        # shutdown. Can't use a try-restart as libvirtd will simply
-        # own the sockets again when it comes back up. Thus we must
-        # do this particular ordering, so that we get libvirtd
-        # running with socket activation in use
-        #/bin/systemctl is-active libvirtd.service 1>/dev/null 2>&1
-        #if test $? = 0
-        #then
-        #    /bin/systemctl stop libvirtd.service >/dev/null 2>&1 || :
-
-        #    /bin/systemctl try-restart libvirtd.socket >/dev/null 2>&1 || :
-        #    /bin/systemctl try-restart libvirtd-ro.socket >/dev/null 2>&1 || :
-        #    /bin/systemctl try-restart libvirtd-admin.socket >/dev/null 2>&1 || :
-
-        #    /bin/systemctl start libvirtd.service >/dev/null 2>&1 || :
-        #fi
-    fi
-fi
-rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
-
-%post daemon-config-network
-if test $1 -eq 1 && test ! -f %{_sysconfdir}/libvirt/qemu/networks/default.xml ; then
-    # see if the network used by default network creates a conflict,
-    # and try to resolve it
-    # NB: 192.168.122.0/24 is used in the default.xml template file;
-    # do not modify any of those values here without also modifying
-    # them in the template.
-    orig_sub=122
-    sub=${orig_sub}
-    nl='
-'
-    routes="${nl}$(ip route show | cut -d' ' -f1)${nl}"
-    case ${routes} in
-      *"${nl}192.168.${orig_sub}.0/24${nl}"*)
-        # there was a match, so we need to look for an unused subnet
-        for new_sub in $(seq 124 254); do
-          case ${routes} in
-          *"${nl}192.168.${new_sub}.0/24${nl}"*)
-            ;;
-          *)
-            sub=$new_sub
-            break;
-            ;;
-          esac
-        done
-        ;;
-      *)
-        ;;
-    esac
-
-    UUID=`%{_bindir}/uuidgen`
-    sed -e "s/${orig_sub}/${sub}/g" \
-        -e "s,</name>,</name>\n  <uuid>$UUID</uuid>," \
-         < %{_datadir}/libvirt/networks/default.xml \
-         > %{_sysconfdir}/libvirt/qemu/networks/default.xml
-    ln -s ../default.xml %{_sysconfdir}/libvirt/qemu/networks/autostart/default.xml
-    # libvirt saves this file with mode 0600
-    chmod 0600 %{_sysconfdir}/libvirt/qemu/networks/default.xml
-
-    # Make sure libvirt picks up the new network defininiton
-    mkdir -p %{_localstatedir}/lib/rpm-state/libvirt || :
-    touch %{_localstatedir}/lib/rpm-state/libvirt/restart || :
-fi
-
-%posttrans daemon-config-network
-#if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
-#    /bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
-#fi
-rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
-
-%post daemon-config-nwfilter
-cp %{_datadir}/libvirt/nwfilter/*.xml %{_sysconfdir}/libvirt/nwfilter/
-# libvirt saves these files with mode 600
-chmod 600 %{_sysconfdir}/libvirt/nwfilter/*.xml
-# Make sure libvirt picks up the new nwfilter defininitons
-mkdir -p %{_localstatedir}/lib/rpm-state/libvirt || :
-touch %{_localstatedir}/lib/rpm-state/libvirt/restart || :
-
-%posttrans daemon-config-nwfilter
-#if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
-#    /bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
-#fi
-rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
-
-%pre daemon-driver-qemu
-# We want soft static allocation of well-known ids, as disk images
-# are commonly shared across NFS mounts by id rather than name; see
-# https://fedoraproject.org/wiki/Packaging:UsersAndGroups
-getent group kvm >/dev/null || groupadd -f -g 36 -r kvm
-getent group qemu >/dev/null || groupadd -f -g 107 -r qemu
-if ! getent passwd qemu >/dev/null; then
-  if ! getent passwd 107 >/dev/null; then
-    useradd -r -u 107 -g qemu -G kvm -d / -s %{_sbindir}/nologin -c "qemu user" qemu
-  else
-    useradd -r -g qemu -G kvm -d / -s %{_sbindir}/nologin -c "qemu user" qemu
-  fi
-fi
-exit 0
 
 %files
 
