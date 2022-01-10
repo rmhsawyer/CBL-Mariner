@@ -13,7 +13,7 @@ BuildRequires:  gettext
 BuildRequires:  glib2-devel
 BuildRequires:  gobject-introspection-devel
 BuildRequires:  gtk-doc
-#BuildRequires:  libvirt-devel
+BuildRequires:  libvirt-devel
 BuildRequires:  libxml2-devel
 BuildRequires:  meson
 BuildRequires:  vala
