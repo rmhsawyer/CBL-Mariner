@@ -720,7 +720,7 @@ fi
 
 %posttrans daemon-config-network
 if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
-    /bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
+    #/bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
 fi
 rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
 
@@ -734,7 +734,7 @@ touch %{_localstatedir}/lib/rpm-state/libvirt/restart || :
 
 %posttrans daemon-config-nwfilter
 if [ -f %{_localstatedir}/lib/rpm-state/libvirt/restart ]; then
-    /bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
+    #/bin/systemctl try-restart libvirtd.service >/dev/null 2>&1 || :
 fi
 rm -rf %{_localstatedir}/lib/rpm-state/libvirt || :
 
