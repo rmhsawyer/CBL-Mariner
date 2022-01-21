@@ -997,6 +997,8 @@
                 "minicom",
                 "minizip",
                 "mksh",
+                "mock",
+                "mock-core-configs",
                 "mobile-broadband-provider-info",
                 "mod_auth_gssapi",
                 "mod_auth_mellon",
@@ -1805,6 +1807,7 @@
                 "python-msrestazure",
                 "python-mutagen",
                 "python-ndg_httpsclient",
+                "python-nose2",
                 "python-novaclient",
                 "python-nss",
                 "python-ntlm-auth",
@@ -1835,6 +1838,7 @@
                 "python-pymongo",
                 "python-PyMySQL",
                 "python-pyperclip",
+                "python-pyroute2",
                 "python-pyrsistent",
                 "python-pysocks",
                 "python-pytest-benchmark",
@@ -1894,6 +1898,7 @@
                 "python-sushy",
                 "python-systemd",
                 "python-tempita",
+                "python-templated-dictionary",
                 "python-testpath",
                 "python-testrepository",
                 "python-testresources",
@@ -2399,15 +2404,6 @@
                 "verity-read-only-root",
                 "vnstat",
                 "zstd"
-            ]
-        },
-        "Mock source": {
-            "license": "[GPLv2+ License](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)",
-            "specs": [
-                "dnf-plugins-core",
-                "mock-core-configs",
-                "python-pyroute2",
-                "python-templated-dictionary"
             ]
         },
         "Netplan source": {
@@ -3155,12 +3151,6 @@
                 "zip",
                 "zlib",
                 "zsh"
-            ]
-        },
-        "python-nose2 source": {
-            "license": "[BSD License](https://opensource.org/licenses/BSD-3-Clause)",
-            "specs": [
-                "python-nose2"
             ]
         }
     }
