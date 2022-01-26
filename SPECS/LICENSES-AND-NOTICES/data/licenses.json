@@ -1787,7 +1787,6 @@
                 "python-keystoneclient",
                 "python-kmod",
                 "python-kombu",
-                "python-kubernetes",
                 "python-lazy-object-proxy",
                 "python-ldap",
                 "python-lesscpy",
