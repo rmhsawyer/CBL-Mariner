@@ -8,12 +8,12 @@ Distribution:   Mariner
 
 Name:           python-%{pypi_name}
 Version:        0.14
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Python module to interface with %{pypi_name}
 
 License:        GPLv2
 URL:            https://github.com/fedora-python/%{name}
-Source0:        %{pypi_source}
+Source0:        https://github.com/fedora-python/python-ethtool/archive/refs/tags/v%{version}.tar.gz#/%{pypi_name}-%{version}.tar.gz
 
 BuildRequires:  gcc
 
@@ -78,6 +78,10 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}
 %{python3_sitearch}/%{pypi_name}-%{version}-py%{python3_version}.egg-info/
 
 %changelog
+* Thu Jan 27 2022 Cameron Baird <cameronbaird@microsoft.com> - 0.14-8
+- Move to SPECS
+- License verified
+
 * Fri Oct 15 2021 Pawel Winogrodzki <pawelwi@microsoft.com> - 0.14-7
 - Initial CBL-Mariner import from Fedora 32 (license: MIT).
 
