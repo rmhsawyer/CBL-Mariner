@@ -1,7 +1,7 @@
 Summary:        Cloud instance init scripts
 Name:           cloud-init
 Version:        23.4.3
-Release:        3%{?dist}
+Release:        4%{?dist}
 License:        GPLv3
 Vendor:         Microsoft Corporation
 Distribution:   Azure Linux
@@ -12,7 +12,6 @@ Source1:        10-azure-kvp.cfg
 Patch0:         0001-Add-new-distro-azurelinux-for-Microsoft-Azure-Linux.patch
 Patch1:         Add-Network-Interface-Renaming-Support-for-CAPM3-Met.patch
 # Patch no longer needed for cloud-init >= 24.1
-Patch2:         dhcp_support_dhclient_unknown_121.patch
 %define cl_services cloud-config.service cloud-config.target cloud-final.service cloud-init.service cloud-init.target cloud-init-local.service
 BuildRequires:  automake
 BuildRequires:  dbus
@@ -33,7 +32,6 @@ BuildRequires:  python3-six
 BuildRequires:  python3-xml
 BuildRequires:  systemd
 BuildRequires:  systemd-devel
-Requires:       dhcp-client
 Requires:       e2fsprogs
 Requires:       iproute
 Requires:       net-tools
