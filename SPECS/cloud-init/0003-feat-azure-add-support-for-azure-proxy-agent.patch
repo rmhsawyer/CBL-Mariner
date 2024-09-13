@@ -3,6 +3,18 @@ From: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
 Date: Mon, 15 Jul 2024 18:48:19 -0700
 Subject: [PATCH 3/3] feat(azure): add support for azure-proxy-agent
 
+NOTE change for azurelinux :
+
+This patch has some addtional modifications in the test_azure.py. Those changes remove
+some tests which would fail to run:
+1. removing unit tests for imds.headers_cb in test_no_pps, which is not implement 
+in our current version of cloud-init
+2. remove checking for distro=self.azure_ds.distro in test_no_pps, this is due to
+a behavior difference in mock_azure_get_metadata_from_fabric which would not return
+self.azure_ds.distro
+3. remove mock_report_dmesg_to_kvp test in test_no_pps, as mock_report_dmesg_to_kvp is not 
+implemented in our current version of cloud-init
+
 ---
  cloudinit/sources/DataSourceAzure.py  |  40 ++++
  cloudinit/sources/azure/errors.py     |  19 +-
@@ -101,23 +113,21 @@ index 966725b00..b331cd686 100644
 +        self.supporting_data["exit_code"] = exception.exit_code
 +        self.supporting_data["stdout"] = exception.stdout
 +        self.supporting_data["stderr"] = exception.stderr
-diff --git a/tests/unittests/sources/test_azure.py b/tests/unittests/sources/test_azure.py
-index 255991ec3..9b6672e1e 100644
---- a/tests/unittests/sources/test_azure.py
-+++ b/tests/unittests/sources/test_azure.py
+diff -ruN a/tests/unittests/sources/test_azure.py b/tests/unittests/sources/test_azure.py
+--- a/tests/unittests/sources/test_azure.py	2023-08-28 09:20:24.000000000 -0700
++++ b/tests/unittests/sources/test_azure.py	2024-09-06 11:30:27.992040291 -0700
 @@ -1,6 +1,7 @@
  # This file is part of cloud-init. See LICENSE file for license information.
-
+ 
  import copy
 +import datetime
  import json
  import os
  import stat
-@@ -48,6 +49,16 @@ def mock_wrapping_setup_ephemeral_networking(azure_ds):
-         yield m
-
-
-+@pytest.fixture
+@@ -49,6 +50,16 @@
+ 
+ 
+ @pytest.fixture
 +def mock_wrapping_report_failure(azure_ds):
 +    with mock.patch.object(
 +        azure_ds,
@@ -127,14 +137,14 @@ index 255991ec3..9b6672e1e 100644
 +        yield m
 +
 +
- @pytest.fixture
++@pytest.fixture
  def mock_azure_helper_readurl():
      with mock.patch(
-@@ -253,6 +264,14 @@ def mock_subp_subp():
-         yield m
-
-
-+@pytest.fixture
+         "cloudinit.sources.helpers.azure.url_helper.readurl", autospec=True
+@@ -254,6 +265,14 @@
+ 
+ 
+ @pytest.fixture
 +def mock_timestamp():
 +    timestamp = datetime.datetime.utcnow()
 +    with mock.patch.object(errors, "datetime", autospec=True) as m:
@@ -142,12 +152,13 @@ index 255991ec3..9b6672e1e 100644
 +        yield timestamp
 +
 +
- @pytest.fixture
++@pytest.fixture
  def mock_util_ensure_dir():
      with mock.patch(
-@@ -3672,6 +3691,91 @@ class TestProvisioning:
+         MOCKPATH + "util.ensure_dir",
+@@ -3649,6 +3668,76 @@
          }
-
+ 
      def test_no_pps(self):
 +        ovf = construct_ovf_env(provision_guest_proxy_agent=False)
 +        md, ud, cfg = dsaz.read_azure_ovf(ovf)
@@ -192,7 +203,6 @@ index 255991ec3..9b6672e1e 100644
 +        assert self.mock_azure_get_metadata_from_fabric.mock_calls == [
 +            mock.call(
 +                endpoint="10.11.12.13",
-+                distro=self.azure_ds.distro,
 +                iso_dev="/dev/sr0",
 +                pubkey_info=None,
 +            )
@@ -210,8 +220,6 @@ index 255991ec3..9b6672e1e 100644
 +        assert len(self.mock_azure_report_failure_to_fabric.mock_calls) == 0
 +        assert len(self.mock_kvp_report_success_to_host.mock_calls) == 1
 +
-+        # Verify dmesg reported via KVP.
-+        assert len(self.mock_report_dmesg_to_kvp.mock_calls) == 1
 +
 +    def test_no_pps_gpa(self):
 +        """test full provisioning scope when azure-proxy-agent
@@ -225,10 +233,10 @@ index 255991ec3..9b6672e1e 100644
          self.mock_readurl.side_effect = [
              mock.MagicMock(contents=json.dumps(self.imds_md).encode()),
          ]
-@@ -3679,6 +3783,11 @@ class TestProvisioning:
-
+@@ -3656,6 +3745,11 @@
+ 
          self.azure_ds._check_and_get_data()
-
+ 
 +        assert self.mock_subp_subp.mock_calls == [
 +            mock.call(
 +                ["azure-proxy-agent", "--status", "--wait", "120"],
@@ -237,8 +245,8 @@ index 255991ec3..9b6672e1e 100644
          assert self.mock_readurl.mock_calls == [
              mock.call(
                  "http://169.254.169.254/metadata/instance?"
-@@ -3736,6 +3845,93 @@ class TestProvisioning:
-
+@@ -3713,6 +3807,92 @@
+ 
          # Verify reports via KVP.
          assert len(self.mock_kvp_report_failure_to_host.mock_calls) == 0
 +        assert len(self.mock_azure_report_failure_to_fabric.mock_calls) == 0
@@ -264,7 +272,6 @@ index 255991ec3..9b6672e1e 100644
 +        self.mock_azure_get_metadata_from_fabric.return_value = []
 +
 +        self.azure_ds._check_and_get_data()
-+
 +        assert self.mock_subp_subp.mock_calls == [
 +            mock.call(
 +                ["azure-proxy-agent", "--status", "--wait", "120"],
@@ -329,12 +336,12 @@ index 255991ec3..9b6672e1e 100644
 +        assert len(self.mock_kvp_report_failure_to_host.mock_calls) == 1
 +        assert len(self.mock_azure_report_failure_to_fabric.mock_calls) == 1
          assert len(self.mock_kvp_report_success_to_host.mock_calls) == 1
-
+ 
      def test_running_pps(self):
-@@ -4315,6 +4511,64 @@ class TestProvisioning:
+@@ -4292,6 +4472,64 @@
          assert len(self.mock_kvp_report_success_to_host.mock_calls) == 1
-
-
+ 
+ 
 +class TestCheckAzureProxyAgent:
 +    @pytest.fixture(autouse=True)
 +    def proxy_setup(

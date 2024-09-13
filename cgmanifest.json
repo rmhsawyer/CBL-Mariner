@@ -13673,8 +13673,8 @@
         "type": "other",
         "other": {
           "name": "msft-golang",
-          "version": "1.22.5",
-          "downloadUrl": "https://github.com/microsoft/go/releases/download/v1.22.5-1/go1.22.5-20240702.3.src.tar.gz"
+          "version": "1.22.7",
+          "downloadUrl": "https://github.com/microsoft/go/releases/download/v1.22.7-1/go1.22.7-20240905.3.src.tar.gz"
         }
       }
     },
@@ -25014,8 +25014,8 @@
         "type": "other",
         "other": {
           "name": "python-webob",
-          "version": "1.8.7",
-          "downloadUrl": "https://github.com/Pylons/webob/archive/refs/tags/1.8.7.tar.gz"
+          "version": "1.8.8",
+          "downloadUrl": "https://github.com/Pylons/webob/archive/refs/tags/1.8.8.tar.gz"
         }
       }
     },
@@ -28477,8 +28477,8 @@
         "type": "other",
         "other": {
           "name": "sysstat",
-          "version": "12.7.1",
-          "downloadUrl": "https://github.com/sysstat/sysstat/archive/v12.7.1.tar.gz"
+          "version": "12.7.6",
+          "downloadUrl": "https://github.com/sysstat/sysstat/archive/v12.7.6.tar.gz"
         }
       }
     },
